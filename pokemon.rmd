@@ -1,0 +1,348 @@
+---
+title: "Pokemon"
+output: html_notebook
+---
+
+```{r}
+#load packages
+
+library(plyr)
+library(dplyr)
+library(readr)
+library(tidyr)
+library(ggplot2)
+library(forcats)
+library(kableExtra)
+library(knitr)
+library(rvest)
+library(selectr)
+library(xml2)
+library(jsonlite)
+library(stringr)
+library(rio)
+library(reshape)
+
+```
+
+```{r}
+#web scraping the bulbapedia site to get the pokemon and step counts
+
+url <- "https://bulbapedia.bulbagarden.net/wiki/List_of_Pok%C3%A9mon_by_base_Egg_cycles"
+
+webpage <- read_html(url)
+
+dex_num <- html_nodes(webpage, "td")
+
+dex_data <- html_text(dex_num)
+
+dex_data <- as.factor(dex_data)
+
+#deleted text in first two rows and made it into a .csv 
+
+dex_data <- dex_data[-(1:2)]
+
+write.csv(dex_data, "dex_data.csv")
+
+```
+
+```{r}
+#load up and clean dex_data.csv which was all one long column :(
+
+egg <- read.csv("dex_data.csv")
+
+#starting from 1, I took every 11th cell which represented the pokemon's pokedex number
+
+egg_id <- egg %>%
+  slice(which(row_number() %% 11 == 1))
+
+#i turned this into a csv file so I could have a base .csv file to add to
+
+write.csv(egg_id, "egg_final.csv")
+
+#extracted every 11th cell to get pokemon name, and step counts for each generation
+
+egg_mon <- egg[seq(3, nrow(egg), 11), ]
+
+egg_gen2 <- egg[seq(7, nrow(egg), 11), ]
+
+egg_gen3 <- egg[seq(8, nrow(egg), 11), ]
+
+egg_gen4 <- egg[seq(9, nrow(egg), 11), ]
+
+egg_gen56 <- egg[seq(10, nrow(egg), 11), ]
+
+egg_gen7 <- egg[seq(11, nrow(egg), 11), ]
+
+#loaded up egg_final.csv
+
+egg_final <- read.csv("egg_final.csv")
+
+#combined into two different variables because egg_others had more rows than egg_final
+
+egg_final <- cbind(egg_id, egg_mon, egg_gen2, egg_gen3)
+
+egg_others <- cbind(egg_gen4, egg_gen56, egg_gen7)
+
+#changed the column names anf got rid of excess columns
+
+names(egg_final)[2] <- "ID"
+names(egg_final)[4] <- "Pokemon Name"
+names(egg_final)[6] <- "Gen 2 Steps"
+names(egg_final)[8] <- "Gen 3 Steps"
+
+egg_final$X <- NULL
+egg_final$X <- NULL
+egg_final$X <- NULL
+egg_final$X <- NULL
+
+names(egg_others)[2] <- "Gen 4 Steps"
+names(egg_others)[4] <- "Gen 5-6 Steps"
+names(egg_others)[6] <- "Gen 7 Steps"
+
+egg_others$X <- NULL
+egg_others$X <- NULL
+egg_others$X <- NULL
+
+#got rid of extra row
+
+egg_final <- slice(egg_final, 1:(n()-1))
+
+#combined
+
+egg_final <- cbind(egg_final, egg_others)
+
+#got rid of random text at the bottom of combined .csv
+
+egg_final <- slice(egg_final, 1:(n()-1))
+
+#created new file
+
+egg_final <- write.csv(egg_final, "egg_final.csv")
+
+egg_final <- read.csv("egg_final.csv")
+
+#got rid of "\n" in every column
+
+egg_final$Pokemon.Name <- sapply(egg_final$Pokemon.Name,function(x) { gsub("[\r\n]", "", x) })
+egg_final$Gen.2.Steps <- sapply(egg_final$Gen.2.Steps,function(x) { gsub("[\r\n]", "", x) })
+egg_final$Gen.3.Steps <- sapply(egg_final$Gen.3.Steps,function(x) { gsub("[\r\n]", "", x) })
+egg_final$Gen.4.Steps <- sapply(egg_final$Gen.4.Steps,function(x) { gsub("[\r\n]", "", x) })
+egg_final$Gen.5.6.Steps <- sapply(egg_final$Gen.5.6.Steps,function(x) { gsub("[\r\n]", "", x) })
+
+#changed from fct to int
+
+egg_final$Gen.2.Steps <- as.integer(egg_final$Gen.2.Steps)
+egg_final$Gen.3.Steps <- as.integer(egg_final$Gen.3.Steps)
+egg_final$Gen.4.Steps <- as.integer(egg_final$Gen.4.Steps)
+egg_final$Gen.5.6.Steps <- as.integer(egg_final$Gen.5.6.Steps)
+
+#get rid of excess column
+
+egg_final$X <- NULL
+
+#finished cleaning data frame
+
+egg_final <- write.csv(egg_final, "egg_final.csv")
+
+egg_final <- read.csv("egg_final.csv")
+
+#i don't know why but there is another random column. If I get rid of the "egg_final$X <- NULL" above, there is still another column...
+
+egg_final$X <- NULL
+
+egg_final
+
+```
+
+```{r}
+#In Pokemon Sword and Shield, how long does it take to hatch pokemon?
+#Did some test runs by hatching a Salandit.
+#Salandit takes 5120 steps to hatch
+#This took 2 min 5 sec (125 sec) by biking and 3 min 34 sec (214 sec) by running
+
+biking_second_per_step <- 125/5120
+
+print(paste0(biking_second_per_step, " seconds per step by biking"))
+
+running_second_per_step <- 240/5120
+
+print(paste0(running_second_per_step, " seconds per step by running"))
+
+#biking saves a little more than half the time
+
+```
+
+```{r}
+#this is only accurate for pokemon sword and shield
+#other pokemon games have different speeds for bicycles and running/rollerbalding(lol pokemon X/Y)
+
+
+#takes in Pokedex Number, Which Generation, and Running vs. Biking
+pokemon_name <- readline(prompt = "Enter Pokemon Name: ")
+
+pokemon_name <- as.character(pokemon_name)
+
+generation <- readline(prompt = "Enter Generation (2-7): ")
+
+type <- readline(prompt = "Running or Biking? ")
+
+#finds row that corresponds to pokemon name
+
+target <- filter(egg_final, grepl(pokemon_name, egg_final$Pokemon.Name))
+
+#finds column that corresponds to specified generation
+
+egg_steps <- target %>% select(contains(generation))
+
+#set the time (in seconds) variable
+
+time <- 0
+
+#if statement: Running vs. Biking
+
+if(type == "Running" | type == "running") {
+  
+  time <- egg_steps*running_second_per_step
+  
+  } else {
+  
+    time <- egg_steps*biking_second_per_step
+  
+  }
+
+#Print Output
+
+print(paste0("To Hatch", target$Pokemon.Name, ", You Need ", time, " seconds by ", type ))
+```
+
+```{r}
+#5 number summary of each gen
+
+#Gen 2
+gen_2_summary <- egg_final %>%
+  select(Gen.2.Steps) %>%
+  filter(!is.na(Gen.2.Steps)) %>%
+  summary()
+
+gen_2_count <- egg_final %>%
+  select(Gen.2.Steps) %>%
+  filter(!is.na(Gen.2.Steps)) %>%
+  nrow()
+
+print(paste0("The number of Pokemon in Generation 2: ", gen_2_count))
+
+print(paste0("Generation 2 five number summary is: "))
+gen_2_summary
+
+#Gen 3
+gen_3_summary <- egg_final %>%
+  select(Gen.3.Steps) %>%
+  filter(!is.na(Gen.3.Steps)) %>%
+  summary()
+
+gen_3_count <- egg_final %>%
+  select(Gen.3.Steps) %>%
+  filter(!is.na(Gen.3.Steps)) %>%
+  nrow()
+
+print(paste0("The number of Pokemon in Generation 3: ", gen_3_count))
+
+print(paste0("Generation 3 five number summary is: "))
+gen_3_summary
+
+#Gen 4
+gen_4_summary <- egg_final %>%
+  select(Gen.4.Steps) %>%
+  filter(!is.na(Gen.4.Steps)) %>%
+  summary()
+
+gen_4_count <- egg_final %>%
+  select(Gen.4.Steps) %>%
+  filter(!is.na(Gen.4.Steps)) %>%
+  nrow()
+
+print(paste0("The number of Pokemon in Generation 4: ", gen_4_count))
+
+print(paste0("Generation 4 five number summary is: "))
+gen_4_summary
+
+#Gen 5/6
+gen_56_summary <- egg_final %>%
+  select(Gen.5.6.Steps) %>%
+  filter(!is.na(Gen.5.6.Steps)) %>%
+  summary()
+
+gen_56_count <- egg_final %>%
+  select(Gen.5.6.Steps) %>%
+  filter(!is.na(Gen.5.6.Steps)) %>%
+  nrow()
+
+print(paste0("The number of Pokemon in Generation 5/6: ", gen_56_count))
+
+print(paste0("Generation 5/6 five number summary is: "))
+gen_56_summary
+
+#Gen 7
+gen_7_summary <- egg_final %>%
+  select(Gen.7.Steps) %>%
+  filter(!is.na(Gen.7.Steps)) %>%
+  summary()
+
+gen_7_count <- egg_final %>%
+  select(Gen.7.Steps) %>%
+  filter(!is.na(Gen.7.Steps)) %>%
+  nrow()
+
+print(paste0("The number of Pokemon in Generation 7: ", gen_7_count))
+
+print(paste0("Generation 7 five number summary is: "))
+gen_7_summary
+
+#the average hatch count increases with every game. probably because as we move through the generations. there is a growth in number of pokemon
+
+```
+
+```{r}
+#line graph of the increase in pokemon through the generations
+
+gen_counts <- c(gen_2_count, gen_3_count, gen_4_count, gen_56_count, gen_7_count)
+
+gen_counts <- as.data.frame(gen_counts)
+
+gen_names <- c("Gen 2", "Gen 3", "Gen 4", "Gen 5 & 6", "Gen 7")
+
+gen_counts$gen_names <- rownames(gen_counts)
+
+gen_counts <- melt(gen_counts, id.vars=c("gen_names"))
+
+gen_counts[1, 1] = "Gen 2"
+gen_counts[2, 1] = "Gen 3"
+gen_counts[3, 1] = "Gen 4"
+gen_counts[4, 1] = "Gen 5/6"
+gen_counts[5, 1] = "Gen 7"
+
+ggplot(gen_counts, aes(x=gen_names, y=value, group=1)) +
+  geom_line() +
+  geom_point(color="red") +
+  xlab("Generation") +
+  ylab("Number of Pokemon") +
+  ggtitle("Increase in Pokemon through the Generations")
+
+```
+
+```{r}
+#histogram of Gen 7
+
+ggplot(egg_final, aes(x=Gen.7.Steps)) +
+  geom_histogram(binwidth = 1500, bins = 100) +
+  geom_vline(aes(xintercept=median(Gen.7.Steps, na.rm=T)),  
+               color="red", linetype="dashed", size=1) +
+  geom_vline(aes(xintercept=mean(Gen.7.Steps, na.rm=T)),  
+               color="blue", linetype="dashed", size=1) +
+  xlab("Generation 7 Step Counts") +
+  ylab("Number of Pokemon")
+
+#Even though more than half of the pokemon hatch in the 5000 steps range, because of extreme outliers, the mean is greater than the median
+
+```
+
