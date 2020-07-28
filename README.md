@@ -1,4 +1,4 @@
-# pokemon
+# Pokemon
 
 ## Inspiration 
 I wanted to do a R project after completeing the codecademy.com's R tutorials to reinforce what I learned. Growing up, I've always played Pokemon and something that has always puzzled me is "how long it takes to hatch specific eggs?" Maybe it was because I was young but I never looked into if different pokemon needed more in-game steps or not. I have quickly realized this was the case and I wanted to take these in-game metrics and provide a way for people to be able to use a real life measure of time to see how long egg hatching actually takes
@@ -8,6 +8,8 @@ This R program's main function is to tell the user how long it takes in seconds 
 
 ## How I built it
 I used R to create this. Some packages I used were tidyverse, ggplot2, stringr, rvest, jsonlite, etc. As I will explain further in "Challenges," there was no available dataset of the information I wanted so I had to web scrape to get it.
+
+The data isn't completely accurate because I didn't take into account differences in running/biking speeds between games. I just used the newest game (Pokemon Sworkd/Shield) to measure the time
 
 ## Challenges I ran into
 I scraped bulbapedia.net for egg hatching data since there was no available data. This was my first time webscraping and the data was messy! The website didn't have many html divisions/containers so I basically scraped the whole website into a one column table with over 8000 entries. I then worked on putting each type of data into different columns and renamed them. I turned 8000+ entries into 800 entries!
